@@ -1,0 +1,7 @@
+export const APP_CONSTANTS = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_LIMIT: 10,
+  MAX_LIMIT: 100,
+  REQUEST_TIMEOUT: 30000,
+  CORRELATION_ID_HEADER: 'x-correlation-id',
+} as const;

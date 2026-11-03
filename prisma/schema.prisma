@@ -1,0 +1,1332 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// IDs remain 24-character hexadecimal strings so existing API IDs and tokens
+// keep their current format during the persistence migration.
+model User {
+  id                      String    @id @db.VarChar(24)
+  firstName               String
+  lastName                String
+  email                   String?   @unique
+  password                String?
+  accountType             String
+  accountTypes            String[]  @default([])
+  authProvider            String    @default("local")
+  clerkId                 String?   @unique
+  phoneNumber             String?
+  isPhoneVerified         Boolean   @default(false)
+  dateOfBirth             DateTime?
+  gender                  String?
+  avatarUrl               String?
+  avatarPublicId          String?
+  notificationPreferences Json      @default("{\"orderUpdates\":true,\"promotions\":false,\"newsletter\":false,\"securityAlerts\":true,\"supportUpdates\":true}")
+  isVerified              Boolean   @default(false)
+  isActive                Boolean   @default(true)
+  isTwoFactorEnabled      Boolean   @default(false)
+  termsAcceptedAt         DateTime?
+  lastLoginAt             DateTime?
+  marketingConsentAt      DateTime?
+  refreshToken            String?
+  deletedAt               DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  addresses                  Address[]
+  seller                     Seller?
+  sellerProfile              SellerProfile?
+  approvedSellerProfiles     SellerProfile[]             @relation("SellerApprover")
+  reviewedSellerProfiles     SellerProfile[]             @relation("SellerProfileReviewer")
+  uploadedSellerDocuments    SellerApplicationDocument[] @relation("SellerDocumentUploader")
+  sellerApplicationReviews   SellerApplicationReview[]   @relation("SellerApplicationActor")
+  orders                     Order[]
+  returnRequests             ReturnRequest[]
+  checkoutSessions           CheckoutSession[]
+  carts                      Cart[]
+  reviews                    Review[]
+  sellerReviewReplies        Review[]                    @relation("ReviewSellerReplyAuthor")
+  reviewHelpfulVotes         ReviewHelpfulVote[]
+  submittedReviewReports     ReviewReport[]              @relation("ReviewReportReporter")
+  resolvedReviewReports      ReviewReport[]              @relation("ReviewReportResolver")
+  wishlistItems              WishlistItem[]
+  authEvents                 AuthEvent[]
+  otpRecords                 Otp[]
+  dataRequests               DataRequest[]               @relation("DataRequestOwner")
+  processedDataRequests      DataRequest[]               @relation("DataRequestProcessor")
+  purgedDataRetentions       DataRequestRetention[]      @relation("DataRequestRetentionProcessor")
+  notifications              Notification[]
+  notificationDevices        NotificationDevice[]
+  recentlyViewed             RecentlyViewed[]
+  submittedSupportTickets    SupportTicket[]             @relation("SupportTicketOwner")
+  assignedSupportTickets     SupportTicket[]             @relation("SupportTicketAssignee")
+  authoredSupportMessages    SupportTicketMessage[]      @relation("SupportMessageAuthor")
+  uploadedSupportAttachments SupportTicketAttachment[]   @relation("SupportAttachmentOwner")
+  wallet                     Wallet?
+  walletTransactions         WalletTransaction[]
+  rewardsAccount             RewardsAccount?
+  rewardsTransactions        RewardsTransaction[]
+  partnerProfile             PartnerProfile?
+  approvedPartnerProfiles    PartnerProfile[]            @relation("PartnerApprover")
+  suspendedSlotBookings      SlotBooking[]               @relation("SlotBookingSuspender")
+  sellerFollows              SellerFollower[]
+  approvedDealCampaigns      DealCampaign[]              @relation("DealCampaignApprover")
+
+  @@index([phoneNumber])
+  @@index([accountType, isActive])
+  @@map("users")
+}
+
+model Category {
+  id           String    @id @db.VarChar(24)
+  name         String
+  slug         String    @unique
+  iconUrl      String?
+  parentId     String?   @db.VarChar(24)
+  productCount Int       @default(0)
+  order        Int       @default(0)
+  isActive     Boolean   @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryTree")
+  products    Product[]  @relation("ProductCategory")
+  subProducts Product[]  @relation("ProductSubCategory")
+
+  @@index([parentId, isActive, order])
+  @@map("categories")
+}
+
+model Seller {
+  id                       String    @id @db.VarChar(24)
+  name                     String
+  slug                     String    @unique
+  logoUrl                  String?
+  ownerId                  String    @unique @db.VarChar(24)
+  isVerified               Boolean   @default(false)
+  responseRatePercent      Float     @default(0)
+  averageRating            Float     @default(0)
+  reviewCount              Int       @default(0)
+  followerCount            Int       @default(0)
+  joinedYear               Int?
+  location                 String?
+  deliveryTimeRange        String?
+  pickupAddress            Json?
+  pickupAddressConfirmedAt DateTime?
+  isActive                 Boolean   @default(true)
+  deletedAt                DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  owner        User             @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  products     Product[]
+  deals        DealCampaign[]
+  followers    SellerFollower[]
+  slotBookings SlotBooking[]
+  productImportBatches ProductImportBatch[]
+
+  @@index([isActive, isVerified])
+  @@map("stores")
+}
+
+model SellerProfile {
+  id                         String    @id @db.VarChar(24)
+  userId                     String    @unique @db.VarChar(24)
+  applicantType              String?
+  businessName               String
+  businessRegistrationNumber String?
+  businessAddress            String
+  businessType               String
+  bankName                   String?
+  bankCode                   String?
+  bankAccountNumber          String?
+  bankAccountNumberLast4     String?
+  bankAccountName            String?
+  bankDetailsCompletedAt     DateTime?
+  bankVerificationProvider   String?
+  bankVerifiedAt             DateTime?
+  applicationStatus          String    @default("pending")
+  submittedAt                DateTime?
+  reviewReason               String?
+  requestedDocumentTypes     String[]  @default([])
+  reviewedAt                 DateTime?
+  reviewedById               String?   @db.VarChar(24)
+  isApproved                 Boolean   @default(false)
+  approvalMethod             String    @default("manual")
+  approvedAt                 DateTime?
+  approvedById               String?   @db.VarChar(24)
+  kycStatus                  String    @default("not_started")
+  kycIdType                  String?
+  kycIdNumberEncrypted       String?
+  kycIdNumberLast4           String?
+  kycApplicantFingerprint    String?
+  kycConsentAt               DateTime?
+  kycConsentVersion          String?
+  kycProviderMode            String?
+  kycVerifiedAt              DateTime?
+  kycLastCheckAt             DateTime?
+  kycFailureCode             String?
+  kycNameMatch               Boolean?
+  deletedAt                  DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  user          User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy    User?                       @relation("SellerApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  reviewedBy    User?                       @relation("SellerProfileReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  documents     SellerApplicationDocument[]
+  reviewHistory SellerApplicationReview[]
+  kycChecks     SellerKycCheck[]
+
+  @@index([applicationStatus, submittedAt])
+  @@map("seller_profiles")
+}
+
+model SellerKycCheck {
+  id              String   @id @db.VarChar(24)
+  sellerProfileId String   @db.VarChar(24)
+  provider        String
+  mode            String
+  checkType       String
+  status          String
+  providerCode    String?
+  nameMatch       Boolean?
+  checkedAt       DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  sellerProfile SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([sellerProfileId, checkedAt])
+  @@index([status, checkedAt])
+  @@map("seller_kyc_checks")
+}
+
+model SellerApplicationDocument {
+  id               String    @id @db.VarChar(24)
+  sellerProfileId  String    @db.VarChar(24)
+  uploadedById     String?   @db.VarChar(24)
+  documentType     String
+  storageKey       String    @unique
+  resourceType     String
+  format           String
+  originalFileName String
+  contentType      String
+  sizeBytes        Int
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+
+  sellerProfile SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  uploadedBy    User?         @relation("SellerDocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([sellerProfileId, documentType, deletedAt])
+  @@map("seller_application_documents")
+}
+
+model SellerApplicationReview {
+  id                     String   @id @db.VarChar(24)
+  sellerProfileId        String   @db.VarChar(24)
+  actorId                String   @db.VarChar(24)
+  fromStatus             String
+  toStatus               String
+  reason                 String?
+  requestedDocumentTypes String[] @default([])
+  createdAt              DateTime @default(now())
+
+  sellerProfile SellerProfile @relation(fields: [sellerProfileId], references: [id], onDelete: Cascade)
+  actor         User          @relation("SellerApplicationActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([sellerProfileId, createdAt])
+  @@map("seller_application_reviews")
+}
+
+model Product {
+  id                  String    @id @db.VarChar(24)
+  name                String
+  slug                String    @unique
+  sku                 String?
+  brand               String?
+  thumbnailUrl        String?
+  price               Json
+  originalPrice       Json?
+  discountPercent     Float     @default(0)
+  savings             Json?
+  gallery             Json      @default("[]")
+  variantAxes         Json      @default("[]")
+  variants            Json      @default("[]")
+  stockQty            Int       @default(0)
+  defaultVariantId    String?
+  descriptionHtml     String?
+  tabs                Json      @default("[]")
+  specifications      Json      @default("[]")
+  breadcrumbs         Json      @default("[]")
+  rating              Float     @default(0)
+  reviewCount         Int       @default(0)
+  inventoryStatus     String    @default("in_stock")
+  publicationStatus   String    @default("draft")
+  salesClosed         Boolean   @default(false)
+  isDeactivated       Boolean   @default(false)
+  deliveryMethod      String?
+  shippingWeightGrams Int?
+  logisticsCategoryId Int?
+  packageLengthCm     Float?
+  packageWidthCm      Float?
+  packageHeightCm     Float?
+  recommendedAt       DateTime?
+  badge               String?
+  categoryId          String?   @db.VarChar(24)
+  subCategoryId       String?   @db.VarChar(24)
+  sellerId            String    @db.VarChar(24)
+  returnPolicy        Json?
+  sections            String[]  @default([])
+  isActive            Boolean   @default(true)
+  moderationStatus    String    @default("approved")
+  moderationReason    String?
+  moderatedAt         DateTime?
+  salesCount          Int       @default(0)
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  category              Category?              @relation("ProductCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  subCategory           Category?              @relation("ProductSubCategory", fields: [subCategoryId], references: [id], onDelete: SetNull)
+  seller                Seller                 @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  cartItems             CartItem[]
+  wishlistItems         WishlistItem[]
+  reviews               Review[]
+  recentlyViewed        RecentlyViewed[]
+  productPolicy         ProductPolicy?
+  partnerCommitments    PartnerCommitment[]
+  slotBookings          SlotBooking[]
+  inventoryReservations InventoryReservation[]
+
+  @@index([sellerId, isActive])
+  @@index([categoryId, isActive])
+  @@index([moderationStatus, isActive])
+  @@index([sellerId, publicationStatus, isDeactivated, deletedAt])
+  @@index([sellerId, recommendedAt])
+  @@map("products")
+}
+
+model ProductImportBatch {
+  id        String   @id @db.VarChar(24)
+  sellerId  String   @db.VarChar(24)
+  products  Json     @default("[]")
+  errors    Json     @default("[]")
+  status    String   @default("previewed")
+  result    Json?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId, status, expiresAt])
+  @@index([expiresAt])
+  @@map("product_import_batches")
+}
+
+model Address {
+  id            String    @id @db.VarChar(24)
+  userId        String    @db.VarChar(24)
+  label         String?
+  recipientName String
+  phoneNumber   String
+  street1       String
+  street2       String?
+  city          String
+  lga           String?
+  state         String
+  country       String    @default("Nigeria")
+  postalCode    String?
+  notes         String?
+  isDefault     Boolean   @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deletedAt])
+  @@index([userId, isDefault])
+  @@map("addresses")
+}
+
+model Order {
+  id                         String    @id @db.VarChar(24)
+  orderRef                   String    @unique
+  userId                     String?   @db.VarChar(24)
+  guestEmail                 String?
+  guestPhone                 String?
+  items                      Json      @default("[]")
+  deliveryAddress            Json
+  deliveryMode               String    @default("standard")
+  pickupDetails              Json?
+  pricing                    Json
+  status                     String    @default("pending_payment")
+  paymentStatus              String    @default("unpaid")
+  paymentMethod              String?
+  paystackReference          String?
+  paidAt                     DateTime?
+  refundedAmount             Float     @default(0)
+  reservedRefundAmount       Float     @default(0)
+  returnQuantityReservations Json      @default("[]")
+  refundInProgressRequestId  String?
+  timeline                   Json      @default("[]")
+  tracking                   Json      @default("[]")
+  cancelReason               String?
+  cancelledAt                DateTime?
+  expiresAt                  DateTime?
+  cartRef                    String?
+  deletedAt                  DateTime?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
+
+  user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  returnRequests        ReturnRequest[]
+  checkoutSessions      CheckoutSession[]
+  logisticsBookings     LogisticsBooking[]
+  inventoryReservations InventoryReservation[]
+
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([paymentStatus, paidAt])
+  @@map("orders")
+}
+
+model InventoryReservation {
+  id         String    @id @db.VarChar(24)
+  orderId    String    @db.VarChar(24)
+  productId  String    @db.VarChar(24)
+  variantId  String?
+  quantity   Int
+  status     String    @default("held")
+  expiresAt  DateTime
+  releasedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, status])
+  @@index([status, expiresAt])
+  @@index([productId, variantId, status])
+  @@map("inventory_reservations")
+}
+
+model Cart {
+  id             String    @id @db.VarChar(24)
+  publicCartId   String    @unique
+  ownerType      String    @default("user")
+  userId         String?   @db.VarChar(24)
+  guestTokenHash String?
+  expiresAt      DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([userId, deletedAt])
+  @@index([expiresAt])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @db.VarChar(24)
+  cartId    String   @db.VarChar(24)
+  productId String   @db.VarChar(24)
+  variantId String?
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([cartId, productId, variantId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Review {
+  id               String    @id @db.VarChar(24)
+  productId        String    @db.VarChar(24)
+  userId           String    @db.VarChar(24)
+  rating           Int
+  title            String?
+  comment          String    @default("")
+  reviewerName     String    @default("")
+  isVerified       Boolean   @default(false)
+  helpfulCount     Int       @default(0)
+  imageUrl         String?
+  imagePublicId    String?
+  sellerReply      String?
+  sellerReplyAt    DateTime?
+  sellerReplyById  String?   @db.VarChar(24)
+  status           String    @default("approved")
+  moderationReason String?
+  moderatedAt      DateTime?
+  moderatedById    String?   @db.VarChar(24)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sellerReplyBy User?               @relation("ReviewSellerReplyAuthor", fields: [sellerReplyById], references: [id], onDelete: SetNull)
+  helpfulVotes  ReviewHelpfulVote[]
+  reports       ReviewReport[]
+
+  @@index([productId, status, createdAt])
+  @@index([userId, createdAt])
+  @@map("reviews")
+}
+
+model ReviewHelpfulVote {
+  id        String   @id @db.VarChar(24)
+  reviewId  String   @db.VarChar(24)
+  userId    String   @db.VarChar(24)
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+  @@index([userId, createdAt])
+  @@map("review_helpful_votes")
+}
+
+model ReviewReport {
+  id           String    @id @db.VarChar(24)
+  reviewId     String    @db.VarChar(24)
+  reportedById String    @db.VarChar(24)
+  status       String    @default("pending")
+  reason       String?
+  reportedAt   DateTime  @default(now())
+  withdrawnAt  DateTime?
+  resolvedAt   DateTime?
+  resolvedById String?   @db.VarChar(24)
+  resolution   String?
+
+  review     Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reportedBy User   @relation("ReviewReportReporter", fields: [reportedById], references: [id], onDelete: Cascade)
+  resolvedBy User?  @relation("ReviewReportResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([status, reportedAt])
+  @@index([reviewId, reportedAt])
+  @@map("review_reports")
+}
+
+model WishlistItem {
+  id        String   @id @db.VarChar(24)
+  userId    String   @db.VarChar(24)
+  productId String   @db.VarChar(24)
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlist_items")
+}
+
+model AuthEvent {
+  id        String   @id @db.VarChar(24)
+  userId    String?  @db.VarChar(24)
+  kind      String
+  succeeded Boolean  @default(true)
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
+  @@map("auth_events")
+}
+
+model Otp {
+  id        String   @id @db.VarChar(24)
+  userId    String?  @db.VarChar(24)
+  email     String
+  code      String
+  type      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, type, isUsed])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+model DataRequest {
+  id                        String    @id @db.VarChar(24)
+  userId                    String?   @db.VarChar(24)
+  kind                      String
+  source                    String    @default("buyer")
+  status                    String    @default("pending")
+  processedById             String?   @db.VarChar(24)
+  processedAt               DateTime?
+  processingStartedAt       DateTime?
+  completedAt               DateTime?
+  responseDueAt             DateTime?
+  acknowledgedAt            DateTime?
+  responseSentAt            DateTime?
+  requesterEmail            String?
+  requesterPhone            String?
+  decisionNotes             String?
+  externalIdentityDeletedAt DateTime?
+  avatarMediaDeletedAt      DateTime?
+  notes                     String?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  user           User?                  @relation("DataRequestOwner", fields: [userId], references: [id], onDelete: SetNull)
+  processedBy    User?                  @relation("DataRequestProcessor", fields: [processedById], references: [id], onDelete: SetNull)
+  retentionItems DataRequestRetention[]
+
+  @@index([userId, kind, status])
+  @@index([status])
+  @@map("data_requests")
+}
+
+model DataRequestRetention {
+  id          String    @id @db.VarChar(24)
+  requestId   String    @db.VarChar(24)
+  category    String
+  lawfulBasis String
+  purpose     String
+  retainUntil DateTime
+  purgedAt    DateTime?
+  purgedById  String?   @db.VarChar(24)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  request  DataRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  purgedBy User?       @relation("DataRequestRetentionProcessor", fields: [purgedById], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, category])
+  @@index([retainUntil, purgedAt])
+  @@index([purgedById])
+  @@map("data_request_retentions")
+}
+
+model RegistrationSession {
+  id            String    @id @db.VarChar(24)
+  sessionId     String    @unique
+  email         String
+  firstName     String?
+  lastName      String?
+  dateOfBirth   DateTime?
+  phoneNumber   String?
+  termsAccepted Boolean   @default(false)
+  currentStep   Int       @default(1)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@map("registration_sessions")
+}
+
+model PendingBuyerSignup {
+  id            String    @id @db.VarChar(24)
+  email         String    @unique
+  firstName     String
+  lastName      String
+  dateOfBirth   DateTime?
+  phoneNumber   String?
+  passwordHash  String
+  termsAccepted Boolean   @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@map("pending_buyer_signups")
+}
+
+model NewsletterSubscription {
+  id        String   @id @db.VarChar(24)
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("newsletter_subscriptions")
+}
+
+model Banner {
+  id             String    @id @db.VarChar(24)
+  type           String
+  title          String
+  subtitle       String?
+  description    String?
+  imageUrl       String?
+  mobileImageUrl String?
+  ctaLabel       String?
+  ctaUrl         String?
+  discountLabel  String?
+  startAt        DateTime?
+  endAt          DateTime?
+  locations      String[]  @default([])
+  order          Int       @default(0)
+  isActive       Boolean   @default(true)
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([type, isActive, order])
+  @@map("banners")
+}
+
+model DealCampaign {
+  id                      String    @id @db.VarChar(24)
+  sellerId                String    @db.VarChar(24)
+  title                   String
+  selectedProductIds      String[]  @default([])
+  maxProducts             Int       @default(10)
+  feeAmount               Float
+  currency                String    @default("NGN")
+  status                  String    @default("draft")
+  paymentStatus           String    @default("unpaid")
+  paymentReference        String?   @unique
+  paymentAuthorizationUrl String?
+  paymentAccessCode       String?
+  paidAt                  DateTime?
+  startsAt                DateTime?
+  endsAt                  DateTime?
+  approvedById            String?   @db.VarChar(24)
+  approvedAt              DateTime?
+  isActive                Boolean   @default(true)
+  deletedAt               DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  seller     Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  approvedBy User?  @relation("DealCampaignApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([sellerId, createdAt])
+  @@index([status, paymentStatus])
+  @@index([selectedProductIds], type: Gin)
+  @@map("deal_campaigns")
+}
+
+model ReturnRequest {
+  id                   String    @id @db.VarChar(24)
+  userId               String    @db.VarChar(24)
+  orderId              String    @db.VarChar(24)
+  requestType          String    @default("item_return")
+  previousOrderStatus  String?
+  items                Json      @default("[]")
+  orderRef             String
+  orderItemProductId   String
+  orderItemVariantId   String?
+  orderItemName        String
+  quantity             Int
+  reason               String
+  description          String?
+  evidenceUrls         String[]  @default([])
+  status               String    @default("pending")
+  sellerDecision       String?
+  sellerDecisionNote   String?
+  sellerDecidedAt      DateTime?
+  adminOverrideNote    String?
+  adminOverrideById    String?   @db.VarChar(24)
+  refundStatus         String?
+  refundMethod         String?
+  refundReference      String?
+  refundProviderId     String?
+  refundProcessedAt    DateTime?
+  refundAmount         Float     @default(0)
+  paymentReference     String?
+  refundProviderStatus String?
+  adjustmentReason     String?
+  deletedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+  @@index([status, createdAt])
+  @@index([paymentReference, refundStatus])
+  @@map("return_requests")
+}
+
+model CheckoutSession {
+  id               String    @id @db.VarChar(24)
+  sessionId        String    @unique
+  cartId           String
+  userId           String?   @db.VarChar(24)
+  status           String    @default("initiated")
+  deliveryAddress  Json?
+  addressValidated Boolean   @default(false)
+  deliveryMode     String?
+  pickupDetails    Json?
+  pricingSnapshot  Json?
+  pricingLocked    Boolean   @default(false)
+  orderId          String?   @db.VarChar(24)
+  metadata         Json?
+  expiresAt        DateTime
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([cartId, status])
+  @@map("checkout_sessions")
+}
+
+model Notification {
+  id            String    @id @db.VarChar(24)
+  userId        String    @db.VarChar(24)
+  title         String
+  body          String
+  actionUrl     String?
+  isRead        Boolean   @default(false)
+  readAt        DateTime?
+  type          String    @default("general")
+  sourceEventId String?   @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model NotificationDevice {
+  id        String   @id @db.VarChar(24)
+  userId    String   @db.VarChar(24)
+  fid       String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+  @@map("notification_devices")
+}
+
+model RecentlyViewed {
+  id        String   @id @db.VarChar(24)
+  userId    String   @db.VarChar(24)
+  productId String   @db.VarChar(24)
+  viewedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, viewedAt])
+  @@map("recently_viewed")
+}
+
+model SiteConfig {
+  id        String   @id @db.VarChar(24)
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("site_configs")
+}
+
+model ProductPolicy {
+  id             String   @id @db.VarChar(24)
+  productId      String   @unique @db.VarChar(24)
+  returnPolicy   Json
+  warrantyPolicy Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_policies")
+}
+
+model SupportTicket {
+  id           String    @id @db.VarChar(24)
+  userId       String?   @db.VarChar(24)
+  accountType  String    @default("buyer")
+  guestEmail   String?
+  subject      String
+  body         String
+  category     String    @default("other")
+  status       String    @default("open")
+  assignedToId String?   @db.VarChar(24)
+  orderId      String?
+  attachments  Json      @default("[]")
+  closedAt     DateTime?
+  withdrawnAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user               User?                      @relation("SupportTicketOwner", fields: [userId], references: [id], onDelete: SetNull)
+  assignedTo         User?                      @relation("SupportTicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages           SupportTicketMessage[]
+  events             SupportTicketEventOutbox[]
+  privateAttachments SupportTicketAttachment[]
+
+  @@index([userId, accountType, createdAt])
+  @@index([status, assignedToId])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id              String   @id @db.VarChar(24)
+  ticketId        String   @db.VarChar(24)
+  authorUserId    String?  @db.VarChar(24)
+  authorRole      String
+  body            String
+  sequence        Int
+  clientMessageId String?
+  sentAt          DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation("SupportMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([ticketId, sequence])
+  @@unique([ticketId, clientMessageId])
+  @@index([ticketId, sentAt])
+  @@map("support_ticket_messages")
+}
+
+model SupportTicketEventOutbox {
+  id          String    @id @db.VarChar(24)
+  ticketId    String    @db.VarChar(24)
+  eventType   String
+  payload     Json
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  lockedUntil DateTime?
+  publishedAt DateTime?
+  lastError   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([publishedAt, availableAt, createdAt])
+  @@map("support_ticket_event_outbox")
+}
+
+model SupportTicketAttachment {
+  id               String    @id @db.VarChar(24)
+  ticketId         String    @db.VarChar(24)
+  uploadedById     String?   @db.VarChar(24)
+  storageKey       String    @unique
+  resourceType     String
+  format           String
+  originalFileName String
+  contentType      String
+  sizeBytes        Int
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User?         @relation("SupportAttachmentOwner", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+  @@index([uploadedById, createdAt])
+  @@map("support_ticket_attachments")
+}
+
+model SellerFollower {
+  id        String   @id @db.VarChar(24)
+  userId    String   @db.VarChar(24)
+  sellerId  String   @db.VarChar(24)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sellerId])
+  @@index([sellerId])
+  @@map("seller_followers")
+}
+
+model Wallet {
+  id          String    @id @db.VarChar(24)
+  userId      String    @unique @db.VarChar(24)
+  balanceKobo Int       @default(0)
+  tier        String    @default("bronze")
+  holds       Json      @default("[]")
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id                 String   @id @db.VarChar(24)
+  walletId           String   @db.VarChar(24)
+  userId             String   @db.VarChar(24)
+  type               String
+  amountKobo         Int
+  runningBalanceKobo Int
+  reference          String?
+  orderId            String?
+  description        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model LogisticsBooking {
+  id                String    @id @db.VarChar(24)
+  bookingRef        String    @unique
+  orderId           String    @db.VarChar(24)
+  orderRef          String
+  groupKey          String?
+  provider          String
+  status            String    @default("pending")
+  quoteId           String?
+  courierId         String?
+  serviceCode       String?
+  shipmentReference String?
+  bookingUncertain  Boolean   @default(false)
+  externalBookingId String?
+  trackingUrl       String?
+  pickupAddress     Json?
+  dropoffAddress    Json?
+  trackingEvents    Json      @default("[]")
+  podArtifacts      Json      @default("[]")
+  quotedFeeKobo     Int       @default(0)
+  cancelReason      String?
+  retryCount        Int       @default(0)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, provider])
+  @@index([orderId])
+  @@unique([orderId, groupKey])
+  @@map("logistics_bookings")
+}
+
+model DeliveryZone {
+  id        String   @id @db.VarChar(24)
+  name      String
+  state     String
+  lgaNames  String[] @default([])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rates DeliveryRate[]
+
+  @@unique([state, name])
+  @@index([state, isActive])
+  @@map("delivery_zones")
+}
+
+model DeliveryRate {
+  id              String   @id @db.VarChar(24)
+  deliveryZoneId  String   @db.VarChar(24)
+  method          String
+  minWeightGrams  Int      @default(0)
+  maxWeightGrams  Int?
+  amountKobo      Int
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  zone DeliveryZone @relation(fields: [deliveryZoneId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryZoneId, method, minWeightGrams])
+  @@index([deliveryZoneId, method, isActive])
+  @@map("delivery_rates")
+}
+
+model PricingRule {
+  id          String    @id @db.VarChar(24)
+  name        String
+  type        String
+  scope       String    @default("all")
+  scopeValue  String?
+  value       Float
+  valueType   String    @default("percent")
+  isActive    Boolean   @default(true)
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("pricing_rules")
+}
+
+model PartnerProfile {
+  id                  String    @id @db.VarChar(24)
+  userId              String    @unique @db.VarChar(24)
+  status              String    @default("pending")
+  kycSubmitted        Boolean   @default(false)
+  agreementAccepted   Boolean   @default(false)
+  agreementAcceptedAt DateTime?
+  fundingCapNGN       Float     @default(0)
+  approvedById        String?   @db.VarChar(24)
+  approvedAt          DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy  User?               @relation("PartnerApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  commitments PartnerCommitment[]
+  disputes    PartnerDispute[]
+
+  @@index([status])
+  @@map("partner_profiles")
+}
+
+model PartnerCommitment {
+  id           String    @id @db.VarChar(24)
+  partnerId    String    @db.VarChar(24)
+  productId    String    @db.VarChar(24)
+  amountNGN    Float
+  status       String    @default("pending")
+  approvedById String?   @db.VarChar(24)
+  approvedAt   DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  partner  PartnerProfile   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  product  Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  disputes PartnerDispute[]
+
+  @@index([partnerId, status])
+  @@map("partner_commitments")
+}
+
+model PartnerDispute {
+  id           String    @id @db.VarChar(24)
+  partnerId    String    @db.VarChar(24)
+  commitmentId String    @db.VarChar(24)
+  reason       String
+  status       String    @default("open")
+  resolvedById String?   @db.VarChar(24)
+  resolution   String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  partner    PartnerProfile    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  commitment PartnerCommitment @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+
+  @@index([partnerId, status])
+  @@map("partner_disputes")
+}
+
+model SlotType {
+  id          String    @id @db.VarChar(24)
+  name        String
+  placement   String
+  maxItems    Int
+  isActive    Boolean   @default(true)
+  description String?
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  promoSlots    PromoSlot[]
+  durationTiers DurationTier[]
+
+  @@index([placement])
+  @@map("promo_slot_types")
+}
+
+model DurationTier {
+  id            String    @id @db.VarChar(24)
+  slotTypeId    String    @db.VarChar(24)
+  label         String
+  durationHours Int
+  priceNGN      Float
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  slotType SlotType      @relation(fields: [slotTypeId], references: [id], onDelete: Cascade)
+  bookings SlotBooking[]
+
+  @@index([slotTypeId])
+  @@map("promo_duration_tiers")
+}
+
+model PromoSlot {
+  id          String    @id @db.VarChar(24)
+  slotTypeId  String    @db.VarChar(24)
+  date        String
+  capacity    Int
+  bookedCount Int       @default(0)
+  status      String    @default("available")
+  startsAt    DateTime
+  endsAt      DateTime
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  slotType SlotType      @relation(fields: [slotTypeId], references: [id], onDelete: Cascade)
+  bookings SlotBooking[]
+
+  @@index([slotTypeId, date])
+  @@index([status, startsAt])
+  @@map("promo_slots")
+}
+
+model SlotBooking {
+  id                String    @id @db.VarChar(24)
+  sellerId          String    @db.VarChar(24)
+  slotId            String    @db.VarChar(24)
+  durationTierId    String    @db.VarChar(24)
+  productId         String    @db.VarChar(24)
+  amountPaidNGN     Float
+  status            String    @default("pending_payment")
+  paymentStatus     String    @default("unpaid")
+  paystackReference String?
+  paystackAuthUrl   String?
+  activatedAt       DateTime?
+  expiresAt         DateTime?
+  suspendReason     String?
+  suspendedById     String?   @db.VarChar(24)
+  impressions       Int       @default(0)
+  clicks            Int       @default(0)
+  orders            Int       @default(0)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  seller       Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  slot         PromoSlot    @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  durationTier DurationTier @relation(fields: [durationTierId], references: [id], onDelete: Restrict)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  suspendedBy  User?        @relation("SlotBookingSuspender", fields: [suspendedById], references: [id], onDelete: SetNull)
+
+  @@index([sellerId, createdAt])
+  @@index([slotId])
+  @@index([status, paymentStatus])
+  @@map("slot_bookings")
+}
+
+model RewardsProgram {
+  id        String    @id @db.VarChar(24)
+  slug      String    @unique
+  name      String
+  tagline   String?
+  logoUrl   String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("rewards_program")
+}
+
+model RewardsTier {
+  id           String    @id @db.VarChar(24)
+  name         String
+  minPoints    Int
+  maxPoints    Int?
+  cashbackRate Float
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("rewards_tiers")
+}
+
+model RewardsCampaign {
+  id               String    @id @db.VarChar(24)
+  name             String
+  startsAt         DateTime
+  endsAt           DateTime
+  pointsMultiplier Float     @default(1)
+  isActive         Boolean   @default(true)
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+  @@map("rewards_campaigns")
+}
+
+model RewardsAccount {
+  id            String    @id @db.VarChar(24)
+  userId        String    @unique @db.VarChar(24)
+  points        Int       @default(0)
+  cashbackKobo  Int       @default(0)
+  tier          String    @default("bronze")
+  isAffiliate   Boolean   @default(false)
+  affiliateCode String?
+  referredBy    String?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions RewardsTransaction[]
+
+  @@map("rewards_accounts")
+}
+
+model RewardsTransaction {
+  id           String    @id @db.VarChar(24)
+  accountId    String    @db.VarChar(24)
+  userId       String    @db.VarChar(24)
+  type         String
+  points       Int       @default(0)
+  cashbackKobo Int       @default(0)
+  description  String
+  orderId      String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  account RewardsAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([userId, createdAt])
+  @@map("rewards_transactions")
+}

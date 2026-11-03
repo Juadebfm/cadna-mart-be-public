@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - '3000:3000'
+      - '9229:9229'
+    volumes:
+      - ../src:/app/src
+      - ../prisma:/app/prisma
+      - ../prisma.config.ts:/app/prisma.config.ts:ro
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: dev
+      PORT: '3000'
+      APP_PORT: '3000'
+      DATABASE_URL: postgresql://cadna_admin:cadna_local_dev@postgres:5432/cadna_mart_dev?schema=public
+      DATABASE_URL_POOLED: postgresql://cadna_admin:cadna_local_dev@postgres:5432/cadna_mart_dev?schema=public
+    command: >-
+      sh -c "npm run db:generate && npm run db:migrate:deploy && npm run start:dev"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    networks:
+      - cadna-network
+
+  postgres:
+    image: postgres:16
+    ports:
+      - '127.0.0.1:5433:5432'
+    environment:
+      POSTGRES_USER: cadna_admin
+      POSTGRES_PASSWORD: cadna_local_dev
+      POSTGRES_DB: cadna_mart_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cadna_admin -d cadna_mart_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    networks:
+      - cadna-network
+
+volumes:
+  postgres_data:
+
+networks:
+  cadna-network:
+    driver: bridge
